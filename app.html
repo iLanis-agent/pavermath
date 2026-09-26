@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PaverMath - honest paver math</title>
+<style>
+  :root { --bg:#151310; --card:#201c16; --ink:#f1ede4; --dim:#b0a58d; --acc:#cf8850; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding:28px 24px 8px; max-width:980px; margin:0 auto; display:flex; justify-content:space-between; align-items:baseline; }
+  h1 { margin:0; font-size:28px; }
+  h1 span { color:var(--acc); }
+  nav a { color:var(--dim); text-decoration:none; font-size:14px; }
+  main { max-width:980px; margin:0 auto; padding:16px 24px 60px; display:grid; gap:18px; }
+  .card { background:var(--card); border-radius:14px; padding:20px; }
+  .card h2 { margin:0 0 12px; font-size:13px; letter-spacing:1.5px; color:var(--dim); text-transform:uppercase; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; }
+  label { display:block; font-size:13px; color:var(--dim); margin-bottom:4px; }
+  input, select { width:100%; background:#171410; border:1px solid #4d4234; color:var(--ink); border-radius:8px; padding:9px 10px; font-size:15px; }
+  .hint { font-size:12.5px; color:var(--dim); margin-top:10px; }
+  button { cursor:pointer; border:0; border-radius:9px; padding:11px 16px; font-size:15px; background:var(--acc); color:#291708; font-weight:600; }
+  button.ghost { background:#3b332a; color:var(--ink); font-weight:500; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  .verdict { font-size:17px; line-height:1.65; }
+  .verdict b { color:var(--acc); }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-top:16px; }
+  .stat { background:#171410; border-radius:10px; padding:12px; }
+  .stat .v { font-size:19px; font-weight:700; color:var(--acc); }
+  .stat .k { font-size:12px; color:var(--dim); margin-top:2px; }
+  .note { margin-top:14px; font-size:13.5px; color:var(--dim); }
+  .note b { color:var(--acc); font-weight:600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Paver<span>Math</span></h1>
+  <nav><a href="index.html">home</a></nav>
+</header>
+<main>
+  <section class="card">
+    <h2>The project</h2>
+    <div class="grid">
+      <div><label>Area (sq ft)</label><input id="area" type="number" value="200"></div>
+      <div><label>Paver size</label><select id="paver">
+        <option value="4,8">4 x 8 in brick</option>
+        <option value="6,6">6 x 6 in</option>
+        <option value="12,12" selected>12 x 12 in</option>
+        <option value="16,16">16 x 16 in slab</option>
+      </select></div>
+      <div><label>Pattern</label><select id="pattern">
+        <option value="running" selected>Running bond (10% waste)</option>
+        <option value="herringbone">Herringbone (15% waste)</option>
+      </select></div>
+      <div><label>Open edge (linear ft)</label><input id="perim" type="number" value="60"></div>
+      <div><label>Paver price ($/sq ft)</label><input id="price" type="number" step="0.01" value="4"></div>
+    </div>
+    <p class="hint">Only walls count as restraint - every open edge needs a spiked edge section, or the field walks outward within two seasons.</p>
+    <div class="row">
+      <button id="run">Lay it out honestly</button>
+      <button class="ghost" data-preset="walk">garden walkway</button>
+      <button class="ghost" data-preset="patio">the 12x12 patio</button>
+      <button class="ghost" data-preset="apron">herringbone drive apron</button>
+    </div>
+  </section>
+
+  <section class="card" id="result" hidden>
+    <h2>The pallet list</h2>
+    <p class="verdict" id="verdictText"></p>
+    <div class="stats" id="stats"></div>
+    <p class="note" id="advice"></p>
+  </section>
+
+  <section class="card">
+    <h2>The screed truth</h2>
+    <p class="note">Bedding sand gets screeded to one inch and <b>never compacted before the pavers land</b> - the plate compactor comes after, on top of the pavers, and does the real seating. Polymeric sand has one rule: <b>sweep every grain off the surface, then mist, wait ten, mist again</b> - flood it once and the polymer washes out forever. And herringbone is not a style choice on driveways: it is <b>the only pattern that locks against tire loads</b>.</p>
+  </section>
+</main>
+<script src="engine.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var money = function (x) { return '$' + x.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+
+  var PRESETS = {
+    walk: { area: 40, paver: '4,8', pattern: 'running', perim: 26, price: 4 },
+    patio: { area: 200, paver: '12,12', pattern: 'running', perim: 60, price: 4 },
+    apron: { area: 150, paver: '4,8', pattern: 'herringbone', perim: 50, price: 4.5 }
+  };
+  document.querySelectorAll('[data-preset]').forEach(function (b) {
+    b.onclick = function () {
+      var p = PRESETS[b.dataset.preset];
+      Object.keys(p).forEach(function (k) { $(k).value = p[k]; });
+      run();
+    };
+  });
+
+  function run() {
+    var area = +$('area').value || 0;
+    if (area <= 0) { alert('Enter an area.'); return; }
+    var pv = $('paver').value.split(',').map(Number);
+    var pattern = $('pattern').value;
+    var est = PaverMath.estimate({
+      areaSqFt: area, paverWIn: pv[0], paverLIn: pv[1], pattern: pattern,
+      pricePerSqFt: +$('price').value || 4, perimeterFt: +$('perim').value || 0
+    });
+
+    $('verdictText').innerHTML = area + ' sq ft of ' + pv[0] + 'x' + pv[1] + ' at ' + Math.round(est.wastePct * 100) +
+      '% waste is <b>' + est.pavers + ' pavers</b>, on ' + est.beddingTons + ' tons of screeded bedding sand, locked with ' +
+      est.polySandBags + ' bag' + (est.polySandBags > 1 ? 's' : '') + ' of polymeric sand and ' + est.edgeSections +
+      ' edge sections - <b>' + money(est.total) + '</b> all in.';
+
+    var stats = [
+      { v: est.pavers, k: 'pavers with waste' },
+      { v: est.beddingTons + ' t', k: 'bedding sand, 1" screed' },
+      { v: est.polySandBags, k: 'polymeric sand bags' },
+      { v: est.edgeSections, k: 'edge restraint (6 ft)' },
+      { v: money(est.total), k: 'materials total' }
+    ];
+    $('stats').innerHTML = stats.map(function (x) {
+      return '<div class="stat"><div class="v">' + x.v + '</div><div class="k">' + x.k + '</div></div>';
+    }).join('');
+
+    $('advice').innerHTML = PaverMath.advice(est, pattern);
+    $('result').hidden = false;
+    $('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  $('run').onclick = run;
+})();
+</script>
+</body>
+</html>
