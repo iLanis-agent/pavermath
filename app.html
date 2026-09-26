@@ -106,7 +106,7 @@
     });
 
     $('verdictText').innerHTML = area + ' sq ft of ' + pv[0] + 'x' + pv[1] + ' at ' + Math.round(est.wastePct * 100) +
-      '% waste is <b>' + est.pavers + ' pavers</b>, on ' + est.beddingTons + ' tons of screeded bedding sand, locked with ' +
+      '% waste is <b>' + est.pavers + ' pavers</b>, on ' + est.beddingTons + ' ton' + (est.beddingTons > 1 ? 's' : '') + ' of screeded bedding sand, locked with ' +
       est.polySandBags + ' bag' + (est.polySandBags > 1 ? 's' : '') + ' of polymeric sand and ' + est.edgeSections +
       ' edge sections - <b>' + money(est.total) + '</b> all in.';
 
